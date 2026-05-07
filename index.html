@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VZMO</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:sans-serif;}
+body{
+background:#000;color:#fff;overflow-x:hidden;cursor:none;
+-webkit-tap-highlight-color: transparent;
+}
+
+/* SCROLL BAR */
+.progress{
+position:fixed;top:0;left:0;height:3px;
+background:#fff;width:0%;z-index:9999;
+}
+
+/* LOADER */
+.loader{
+position:fixed;inset:0;background:#000;
+display:flex;align-items:center;justify-content:center;
+z-index:99999;letter-spacing:5px;font-size:14px;
+}
+.loader.hidden{opacity:0;pointer-events:none;transition:1s;}
+
+/* CURSOR */
+.cursor,.cursor-glow{
+position:fixed;pointer-events:none;border-radius:50%;
+transform:translate(-50%,-50%);
+}
+.cursor{width:18px;height:18px;border:2px solid #fff;z-index:9999;}
+.cursor-glow{width:90px;height:90px;background:rgba(255,255,255,0.05);z-index:9998;}
+
+/* HERO */
+.hero{
+height:100vh;
+background:url('IMG_20260418_115047.jpg') center/cover no-repeat;
+display:flex;align-items:center;justify-content:center;
+position:relative;
+animation:zoom 20s infinite alternate ease-in-out;
+}
+@keyframes zoom{from{background-size:100%;}to{background-size:110%;}}
+
+.hero::after{
+content:"";position:absolute;inset:0;
+background:linear-gradient(to bottom,rgba(0,0,0,0.6),rgba(0,0,0,0.95));
+}
+
+/* GRAIN OVERLAY */
+.hero::before{
+content:"";
+position:absolute;inset:0;
+background:url('https://grainy-gradients.vercel.app/noise.svg');
+opacity:0.15;
+}
+
+/* HERO CONTENT */
+.hero-content{
+position:relative;text-align:center;z-index:2;
+animation:fadeIn 2s ease forwards;
+}
+.hero h1{font-size:3rem;letter-spacing:10px;}
+.hero p{opacity:0.7;margin-top:10px;}
+
+@keyframes fadeIn{
+from{opacity:0;transform:translateY(20px);}
+to{opacity:1;transform:translateY(0);}
+}
+
+/* BUTTON */
+.btn{
+margin-top:30px;padding:10px 20px;
+border:1px solid rgba(255,255,255,0.2);
+backdrop-filter:blur(10px);
+position:relative;
+overflow:hidden;
+}
+
+/* RIPPLE */
+.btn::after{
+content:"";
+position:absolute;
+width:0;height:0;
+background:rgba(255,255,255,0.3);
+border-radius:50%;
+transform:translate(-50%,-50%);
+pointer-events:none;
+}
+
+/* SECTIONS */
+.section{padding:100px 20px;text-align:center;position:relative;}
+
+/* CARDS */
+.cards{display:flex;flex-wrap:wrap;justify-content:center;gap:30px;}
+.card{
+width:280px;height:180px;border-radius:14px;
+background-size:cover;background-position:center;
+transition:transform 0.3s,box-shadow 0.3s;
+}
+.card:hover{box-shadow:0 0 30px rgba(255,255,255,0.25);}
+
+/* GLASS */
+.glass{
+background:rgba(255,255,255,0.05);
+backdrop-filter:blur(10px);
+padding:30px;border-radius:15px;
+max-width:500px;margin:auto;
+}
+
+/* FADE */
+.fade{opacity:0;transform:translateY(40px);transition:1s;}
+.fade.show{opacity:1;transform:translateY(0);}
+
+/* FOOTER */
+.footer{padding:50px;text-align:center;opacity:0.5;}
+
+</style>
+</head>
+
+<body>
+
+<div class="progress"></div>
+<div class="loader">LOADING</div>
+<div class="cursor"></div>
+<div class="cursor-glow"></div>
+
+<section class="hero">
+<div class="hero-content">
+<h1>VZMO</h1>
+<p>A digital presence shaped by motion and silence.</p>
+<div class="btn" id="enterBtn">Enter</div>
+</div>
+</section>
+
+<section class="section fade" id="target">
+<h2 style="margin-bottom:40px;">Visual Fragments</h2>
+<div class="cards">
+
+<div class="card" style="background-image:url('Screenshot_2026-05-06-18-28-58-929_com.camerasideas.instashot.jpg')"></div>
+<div class="card" style="background-image:url('Screenshot_2026-05-06-18-29-11-657_com.camerasideas.instashot.jpg')"></div>
+<div class="card" style="background-image:url('Screenshot_2026-05-06-19-09-09-757_photoeditor.cutout.backgrounderaser.jpg')"></div>
+
+</div>
+</section>
+
+<section class="section fade" style="background:url('IMG_20260418_115047.jpg') center/cover no-repeat; position:relative;">
+<div style="position:absolute;inset:0;background:rgba(0,0,0,0.85);"></div>
+
+<div class="glass" style="position:relative;z-index:2;">
+<h2>Presence</h2>
+<p style="opacity:0.6;margin-top:10px;">
+Built on minimal motion and controlled visuals.
+</p>
+</div>
+
+</section>
+
+<div class="footer">End of transmission</div>
+
+<script>
+
+/* LOADER */
+window.addEventListener('load',()=>{
+document.querySelector('.loader').classList.add('hidden');
+});
+
+/* CURSOR (disabled on touch) */
+if(!('ontouchstart' in window)){
+const c=document.querySelector('.cursor');
+const g=document.querySelector('.cursor-glow');
+document.addEventListener('mousemove',e=>{
+c.style.left=g.style.left=e.clientX+'px';
+c.style.top=g.style.top=e.clientY+'px';
+});
+}
+
+/* SCROLL PROGRESS */
+window.addEventListener('scroll',()=>{
+let h=document.documentElement;
+let sc=(h.scrollTop)/(h.scrollHeight-h.clientHeight)*100;
+document.querySelector('.progress').style.width=sc+"%";
+});
+
+/* SCROLL REVEAL */
+const f=document.querySelectorAll('.fade');
+function reveal(){
+f.forEach(el=>{
+if(el.getBoundingClientRect().top<window.innerHeight*0.85){
+el.classList.add('show');
+}
+});
+}
+window.addEventListener('scroll',reveal);
+reveal();
+
+/* BUTTON SCROLL */
+document.getElementById('enterBtn').onclick=()=>{
+document.getElementById('target').scrollIntoView({behavior:'smooth'});
+};
+
+/* RIPPLE EFFECT */
+const btn=document.getElementById('enterBtn');
+btn.addEventListener('click',e=>{
+let ripple=document.createElement("span");
+ripple.style.position="absolute";
+ripple.style.left=e.offsetX+"px";
+ripple.style.top=e.offsetY+"px";
+ripple.style.width="100px";
+ripple.style.height="100px";
+ripple.style.background="rgba(255,255,255,0.3)";
+ripple.style.borderRadius="50%";
+ripple.style.transform="translate(-50%,-50%) scale(0)";
+ripple.style.animation="ripple 0.6s linear";
+btn.appendChild(ripple);
+setTimeout(()=>ripple.remove(),600);
+});
+
+</script>
+
+<style>
+@keyframes ripple{
+to{transform:translate(-50%,-50%) scale(3);opacity:0;}
+}
+</style>
+
+</body>
+  </html>
