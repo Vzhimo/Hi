@@ -2,228 +2,332 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VZMO Lite — Final Fixed</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>VZMO Final — Restored</title>
 
-<!-- LOCAL THREE.JS (make sure three.min.js is in same folder) -->
+<!-- Try local Three.js first, then CDN -->
 <script src="three.min.js"></script>
-
-<!-- Mobile console (optional) -->
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
+<script>
+    if (typeof THREE === "undefined") {
+        document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"><\/script>');
+    }
+</script>
 
 <style>
-body{margin:0;background:#000;overflow:hidden;color:#fff;font-family:sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box;font-family:sans-serif;}
+body{background:#000;color:#fff;overflow:hidden;}
+canvas{position:absolute;top:0;left:0;display:block;}
+
+.ui{
+position:absolute;top:0;left:0;width:100%;height:100%;
+display:flex;flex-direction:column;align-items:center;justify-content:center;
+pointer-events:none;z-index:2;
+text-shadow:0 0 10px rgba(0,0,0,0.5);
+}
+
 .panel{
 position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
-background:rgba(0,0,0,0.4);padding:10px;display:flex;gap:10px;
+display:flex;gap:10px;
+background:rgba(0,0,0,0.4);padding:10px 16px;
+backdrop-filter:blur(10px);
+border-radius:30px;
 pointer-events:auto;
+z-index:3;
 }
-button{padding:6px 12px;background:none;color:#fff;border:1px solid #fff;cursor:pointer;}
-button:disabled{opacity:0.5;}
+
+.btn{
+padding:8px 16px;
+border:1px solid rgba(255,255,255,0.5);
+background:rgba(0,0,0,0.6);
+color:#fff;
+cursor:pointer;
+border-radius:30px;
+font-size:14px;
+transition:0.2s;
+}
+.btn:hover{background:#fff;color:#000;}
 </style>
 </head>
 
 <body>
+
+<div class="ui">
+<h1>VZMO</h1>
+<p>Reactive Ripple Engine</p>
+</div>
+
 <div class="panel">
-<button id="mic">Mic</button>
-<button id="reset">Reset</button>
+<button class="btn" id="micBtn">🎤 Enable Mic</button>
+<button class="btn" id="resetBtn">⟳ Reset</button>
 </div>
 
 <script>
-/* === SAFETY === */
-if (typeof THREE === "undefined") {
-    document.body.innerHTML = "<h2 style='color:white;text-align:center;margin-top:40vh;'>Three.js not loaded</h2>";
-    throw new Error("Three.js missing");
-}
-
-/* === SETUP === */
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 100);
-camera.position.set(0, 0, 3);
-camera.lookAt(0, 0, 0);
-
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth, innerHeight);
-document.body.appendChild(renderer.domElement);
-
-/* === UNIFORMS (vibrant) === */
-const uniforms = {
-    time: { value: 0 },
-    hit: { value: new THREE.Vector2(0.5, 0.5) },
-    audio: { value: 0.5 }
-};
-
-/* === COLORFUL SHADER with ripple and audio-reactive hue === */
-const material = new THREE.ShaderMaterial({
-    uniforms,
-    vertexShader: `
-        varying vec2 vUv;
-        void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+// === SAFETY: wait for Three.js ===
+function waitForThree() {
+    return new Promise((resolve, reject) => {
+        if (typeof THREE !== "undefined") resolve();
+        else {
+            const check = setInterval(() => {
+                if (typeof THREE !== "undefined") {
+                    clearInterval(check);
+                    resolve();
+                }
+            }, 100);
+            setTimeout(() => reject("Three.js failed to load"), 5000);
         }
-    `,
-    fragmentShader: `
-        precision highp float;
-        uniform float time;
-        uniform vec2 hit;
-        uniform float audio;
-        varying vec2 vUv;
-
-        void main() {
-            vec2 uv = vUv;
-
-            // ripple wave
-            float d = distance(uv, hit);
-            float ripple = sin(20.0 * d - time * 8.0) * exp(-4.0 * d);
-
-            // glow (mouse/touch proximity)
-            float glow = smoothstep(0.3, 0.0, d) * (0.5 + audio);
-
-            // dynamic base color: changes with hit position and audio
-            vec3 colorA = vec3(0.2, 0.1, 0.6); // deep blue
-            vec3 colorB = vec3(0.9, 0.2, 0.4); // pinkish red
-            vec3 base = mix(colorA, colorB, hit.x + hit.y * 0.5);
-            base += vec3(0.5, 0.3, 0.0) * audio;
-
-            // add ripple and glow
-            vec3 finalColor = base + ripple * 0.3 + glow * 0.8;
-            finalColor = clamp(finalColor, 0.0, 1.0);
-
-            gl_FragColor = vec4(finalColor, 1.0);
-        }
-    `
-});
-
-/* === SPHERE (low poly) === */
-const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48), material);
-scene.add(mesh);
-
-/* === RAYCAST (only on input events) === */
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-let lastUV = new THREE.Vector2(-1, -1);
-
-function setScreenCoords(clientX, clientY) {
-    mouse.x = (clientX / innerWidth) * 2 - 1;
-    mouse.y = -(clientY / innerHeight) * 2 + 1;
+    });
 }
 
-function performRaycast() {
-    raycaster.setFromCamera(mouse, camera);
-    const hits = raycaster.intersectObject(mesh);
-    if (hits.length) {
-        const uv = hits[0].uv;
-        if (uv.distanceTo(lastUV) > 0.001) {
-            lastUV.copy(uv);
-            uniforms.hit.value.copy(uv);
-        }
-    }
-}
-
-// Mouse and touch movement
-window.addEventListener('mousemove', e => {
-    setScreenCoords(e.clientX, e.clientY);
-    performRaycast();
-});
-window.addEventListener('touchmove', e => {
-    e.preventDefault();
-    const t = e.touches[0];
-    setScreenCoords(t.clientX, t.clientY);
-    performRaycast();
+waitForThree().then(() => {
+    init();
+}).catch(err => {
+    document.body.innerHTML = `<div style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif;">⚠️ ${err}<br>Check network or include three.min.js</div>`;
+    console.error(err);
 });
 
-// Click/tap also triggers a raycast (immediate ripple)
-window.addEventListener('click', e => {
-    setScreenCoords(e.clientX, e.clientY);
-    performRaycast();
-});
-window.addEventListener('touchstart', e => {
-    e.preventDefault();
-    const t = e.touches[0];
-    setScreenCoords(t.clientX, t.clientY);
-    performRaycast();
-});
-
-/* === AUDIO (with smoothing, no double init) === */
-let analyser, data, audioCtx, micActive = false;
-let smoothAudio = 0.5;
-const micBtn = document.getElementById('mic');
-
-micBtn.onclick = async () => {
-    if (micActive) return;
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const ctx = new AudioContext();
-        await ctx.resume();
-        audioCtx = ctx;
-        const source = ctx.createMediaStreamSource(stream);
-        analyser = ctx.createAnalyser();
-        analyser.fftSize = 64;
-        source.connect(analyser);
-        data = new Uint8Array(analyser.frequencyBinCount);
-        micActive = true;
-        micBtn.innerText = "ON";
-        micBtn.disabled = true;
-    } catch (err) {
-        console.warn("Mic error:", err);
-        micBtn.innerText = "Failed";
-        setTimeout(() => { micBtn.innerText = "Mic"; micBtn.disabled = false; }, 2000);
-    }
-};
-
-function updateAudio() {
-    if (!analyser || !data) return;
-    analyser.getByteFrequencyData(data);
-    let sum = 0;
-    for (let i = 0; i < data.length; i++) sum += data[i];
-    const raw = (sum / data.length) / 255;
-    smoothAudio += (raw - smoothAudio) * 0.2;
-    uniforms.audio.value = smoothAudio;
-}
-
-/* === RESET BUTTON (fully resets hit, camera, and audio smooth) === */
-document.getElementById('reset').onclick = () => {
-    // reset hit to center
-    uniforms.hit.value.set(0.5, 0.5);
-    lastUV.set(0.5, 0.5);
-    // reset camera (no auto‑motion now)
-    camera.position.set(0, 0, 3);
-    camera.lookAt(0, 0, 0);
-    // reset audio smoothing to neutral
-    smoothAudio = 0.5;
-    uniforms.audio.value = 0.5;
-    // optional: also reset mouse position to center to avoid immediate overrides
-    setScreenCoords(innerWidth/2, innerHeight/2);
-    performRaycast();
-};
-
-/* === ANIMATION LOOP === */
-function animate() {
-    requestAnimationFrame(animate);
-    uniforms.time.value = performance.now() * 0.001;
-    updateAudio();
-
-    // gentle rotation of the sphere (does not affect camera)
-    mesh.rotation.y += 0.003;
-    mesh.rotation.x += 0.001;
-
-    // camera is static; no auto movement (reset now sticks)
-    renderer.render(scene, camera);
-}
-animate();
-
-/* === RESIZE EVENT === */
-window.addEventListener('resize', () => {
+function init() {
+    // ===== THREE SETUP =====
+    const canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+    camera.position.z = 3;
+    const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
     renderer.setSize(innerWidth, innerHeight);
-    camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
-});
-
-// initial raycast at center
-setScreenCoords(innerWidth/2, innerHeight/2);
-performRaycast();
+    
+    // ===== REAL TIME CLOCK =====
+    const getTime = () => performance.now() * 0.001;
+    let startTime = getTime();
+    
+    // ===== RIPPLE SYSTEM (5 ripples) =====
+    const MAX_RIPPLES = 5;
+    const uniforms = {
+        time: { value: 0 },
+        audioLow: { value: 0.5 },
+        audioHigh: { value: 0.5 },
+        beat: { value: 0 },
+        rippleUV: { value: Array.from({length: MAX_RIPPLES}, () => new THREE.Vector2(0.5,0.5)) },
+        rippleTime: { value: new Float32Array(MAX_RIPPLES) }
+    };
+    
+    let rippleIndex = 0;
+    function addRipple(uv) {
+        uniforms.rippleUV.value[rippleIndex].copy(uv);
+        uniforms.rippleTime.value[rippleIndex] = getTime();
+        uniforms.rippleUV.needsUpdate = true;
+        uniforms.rippleTime.needsUpdate = true;
+        rippleIndex = (rippleIndex + 1) % MAX_RIPPLES;
+    }
+    
+    // ===== SHADER (Fresnel + Ripples + Liquid) =====
+    const material = new THREE.ShaderMaterial({
+        uniforms,
+        vertexShader: `
+            varying vec2 vUv;
+            varying vec3 vNormal;
+            varying vec3 vView;
+            void main() {
+                vUv = uv;
+                vNormal = normalize(normalMatrix * normal);
+                vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                vView = normalize(-mv.xyz);
+                gl_Position = projectionMatrix * mv;
+            }
+        `,
+        fragmentShader: `
+            #define MAX_RIPPLES 5
+            uniform float time;
+            uniform float audioLow;
+            uniform float audioHigh;
+            uniform float beat;
+            uniform vec2 rippleUV[MAX_RIPPLES];
+            uniform float rippleTime[MAX_RIPPLES];
+            varying vec2 vUv;
+            varying vec3 vNormal;
+            varying vec3 vView;
+            
+            void main() {
+                vec2 uv = vUv;
+                
+                // liquid motion (audio modulated)
+                uv += sin(uv.y * 8.0 + time * 2.0) * 0.02 * (0.5 + audioLow);
+                uv += cos(uv.x * 8.0 + time * 2.0) * 0.02 * (0.5 + audioLow);
+                
+                // fresnel chrome
+                float fresnel = pow(1.0 - dot(normalize(vNormal), normalize(vView)), 2.5);
+                vec3 base = mix(vec3(0.08,0.08,0.1), vec3(0.8,0.9,1.0), fresnel);
+                
+                // ripple accumulation
+                float rippleSum = 0.0;
+                for(int i = 0; i < MAX_RIPPLES; i++) {
+                    float t = time - rippleTime[i];
+                    if(t < 0.0 || t > 2.0) continue;
+                    float d = distance(uv, rippleUV[i]);
+                    float wave = sin(20.0 * d - t * 6.0);
+                    float fade = exp(-3.0 * d) * (1.0 - t/2.0);
+                    rippleSum += wave * fade;
+                }
+                base += rippleSum * 0.15;
+                
+                // audio influence
+                base += audioHigh * 0.2;
+                base += beat * 0.3;
+                
+                gl_FragColor = vec4(base, 1.0);
+            }
+        `
+    });
+    
+    // ===== SPHERE =====
+    const geometry = new THREE.SphereGeometry(1, 64, 64);
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+    
+    // ===== RAYCAST (only on input move) =====
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let lastMouseScreen = new THREE.Vector2(999, 999);
+    
+    function setMouseFromClient(clientX, clientY) {
+        mouse.x = (clientX / innerWidth) * 2 - 1;
+        mouse.y = -(clientY / innerHeight) * 2 + 1;
+    }
+    
+    function updateRaycast() {
+        // avoid identical calls
+        if (Math.abs(mouse.x - lastMouseScreen.x) < 0.001 && Math.abs(mouse.y - lastMouseScreen.y) < 0.001) return;
+        lastMouseScreen.copy(mouse);
+        
+        raycaster.setFromCamera(mouse, camera);
+        const hits = raycaster.intersectObject(mesh);
+        if (hits.length) {
+            addRipple(hits[0].uv);
+        }
+    }
+    
+    // input events
+    window.addEventListener('mousemove', e => {
+        setMouseFromClient(e.clientX, e.clientY);
+        updateRaycast();
+    });
+    window.addEventListener('touchmove', e => {
+        e.preventDefault();
+        const t = e.touches[0];
+        setMouseFromClient(t.clientX, t.clientY);
+        updateRaycast();
+    });
+    // also on click/tap for instant ripple
+    window.addEventListener('click', e => {
+        setMouseFromClient(e.clientX, e.clientY);
+        updateRaycast();
+    });
+    window.addEventListener('touchstart', e => {
+        e.preventDefault();
+        const t = e.touches[0];
+        setMouseFromClient(t.clientX, t.clientY);
+        updateRaycast();
+    });
+    
+    // ===== AUDIO SYSTEM =====
+    let analyser, data, audioCtx, micActive = false;
+    let smoothLow = 0.5, smoothHigh = 0.5;
+    let envelope = 0, threshold = 0.3;
+    const micBtn = document.getElementById('micBtn');
+    
+    micBtn.addEventListener('click', async () => {
+        if (micActive) return;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const ctx = new AudioContext();
+            await ctx.resume();
+            audioCtx = ctx;
+            const source = ctx.createMediaStreamSource(stream);
+            analyser = ctx.createAnalyser();
+            analyser.fftSize = 128;
+            source.connect(analyser);
+            data = new Uint8Array(analyser.frequencyBinCount);
+            micActive = true;
+            micBtn.textContent = "🎤 ON";
+            micBtn.style.opacity = "0.7";
+        } catch (err) {
+            console.warn("Mic error", err);
+            micBtn.textContent = "❌ Failed";
+            setTimeout(() => { micBtn.textContent = "🎤 Enable Mic"; micBtn.style.opacity = "1"; }, 2000);
+        }
+    });
+    
+    function updateAudio() {
+        if (!analyser || !data) return;
+        analyser.getByteFrequencyData(data);
+        let low = 0, high = 0;
+        const half = data.length / 2;
+        for (let i = 0; i < half; i++) low += data[i];
+        for (let i = half; i < data.length; i++) high += data[i];
+        low /= half;
+        high /= half;
+        
+        // smooth
+        smoothLow += (low / 255 - smoothLow) * 0.1;
+        smoothHigh += (high / 255 - smoothHigh) * 0.1;
+        uniforms.audioLow.value = smoothLow;
+        uniforms.audioHigh.value = smoothHigh;
+        
+        // beat detection
+        envelope += (smoothLow - envelope) * 0.3;
+        threshold = Math.max(threshold, 0.1);
+        if (envelope > threshold && envelope > 0.15) {
+            uniforms.beat.value = 1.0;
+            threshold = envelope * 1.1;
+        } else {
+            uniforms.beat.value *= 0.85;
+            threshold *= 0.995;
+        }
+    }
+    
+    // ===== RESET BUTTON =====
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        // reset hit position to center (clear ripples visually by adding a center ripple)
+        const centerUV = new THREE.Vector2(0.5, 0.5);
+        addRipple(centerUV);
+        // also reset camera (just in case, but camera never moves in this version)
+        camera.position.set(0, 0, 3);
+        // reset audio envelope
+        envelope = 0;
+        threshold = 0.3;
+        uniforms.beat.value = 0;
+        smoothLow = 0.5;
+        smoothHigh = 0.5;
+    });
+    
+    // ===== ANIMATION LOOP =====
+    function animate() {
+        requestAnimationFrame(animate);
+        const now = getTime();
+        uniforms.time.value = now;
+        
+        updateAudio();
+        
+        mesh.rotation.y += 0.003;
+        mesh.rotation.x += 0.001;
+        
+        renderer.render(scene, camera);
+    }
+    animate();
+    
+    // ===== RESIZE =====
+    window.addEventListener('resize', () => {
+        renderer.setSize(innerWidth, innerHeight);
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+    });
+    
+    // initial center ripple
+    setTimeout(() => {
+        addRipple(new THREE.Vector2(0.5, 0.5));
+    }, 100);
+    
+    console.log("VZMO Final running");
+}
 </script>
 </body>
     </html>
