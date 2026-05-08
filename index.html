@@ -1,235 +1,306 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VZMO —System</title>
+<title>VZMO Final</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:sans-serif;}
-body{background:#000;color:#fff;overflow-x:hidden;-webkit-tap-highlight-color:transparent;cursor:none;}
+body{background:#000;color:#fff;overflow:hidden;}
+canvas{position:absolute;top:0;left:0;}
 
-/* TERMINAL */
-.terminal{
-position:fixed;inset:0;background:#000;color:#0f0;
-font-family:monospace;padding:20px;
-z-index:99999;
-}
-.terminal.hidden{display:none;}
-.line{opacity:0;margin:5px 0;}
-.line.show{opacity:1;transition:0.3s;}
-
-/* GLITCH FLASH */
-.flash{
-position:fixed;inset:0;background:#fff;
-opacity:0;pointer-events:none;z-index:99998;
+.ui{
+position:absolute;top:0;left:0;width:100%;height:100%;
+display:flex;flex-direction:column;align-items:center;justify-content:center;
+pointer-events:none;
 }
 
-/* CURSOR */
-.cursor,.cursor-glow{
-position:fixed;pointer-events:none;border-radius:50%;
-transform:translate(-50%,-50%);
-}
-.cursor{width:15px;height:15px;border:2px solid #fff;}
-.cursor-glow{width:80px;height:80px;background:rgba(255,255,255,0.05);}
-
-/* NAV */
-.nav{
-position:fixed;top:0;width:100%;
-padding:15px 30px;
-display:flex;justify-content:space-between;
-background:rgba(0,0,0,0.4);
+.panel{
+position:absolute;bottom:20px;display:flex;gap:10px;
+background:rgba(0,0,0,0.4);padding:10px;
 backdrop-filter:blur(10px);
-opacity:0;transition:0.5s;z-index:999;
 }
-.nav.show{opacity:1;}
 
-/* HERO */
-.hero{
-height:100vh;
-background:url('IMG_20260418_115047.jpg') center/cover no-repeat;
-display:flex;align-items:center;justify-content:center;
-position:relative;
-}
-.hero::after{
-content:"";position:absolute;inset:0;
-background:linear-gradient(to bottom,rgba(0,0,0,0.6),#000);
-}
-.hero-content{text-align:center;z-index:2;}
-.hero h1{font-size:3rem;letter-spacing:10px;}
-.hero p{opacity:0.6;margin-top:10px;}
-
-/* BUTTON */
 .btn{
-margin-top:30px;padding:10px 20px;
-border:1px solid rgba(255,255,255,0.3);
-cursor:pointer;position:relative;
-overflow:hidden;
+padding:8px 14px;border:1px solid rgba(255,255,255,0.3);
+background:transparent;color:#fff;cursor:pointer;
 }
-
-/* SECTION */
-.section{padding:100px 20px;text-align:center;}
-
-/* CARDS */
-.cards{display:flex;flex-wrap:wrap;justify-content:center;gap:30px;}
-.card{
-width:280px;height:180px;border-radius:12px;
-background-size:cover;background-position:center;
-transition:0.3s;
-transform-style:preserve-3d;
-}
-.card:hover{box-shadow:0 0 30px rgba(255,255,255,0.3);}
-
-/* PARTICLES */
-canvas{
-position:fixed;top:0;left:0;
-width:100%;height:100%;
-z-index:-1;
-}
-
-/* FADE */
-.fade{opacity:0;transform:translateY(40px);transition:1s;}
-.fade.show{opacity:1;transform:translateY(0);}
-
-/* FOOTER */
-.footer{text-align:center;padding:50px;opacity:0.5;}
 </style>
 </head>
 
 <body>
 
-<div class="terminal" id="terminal"></div>
-<div class="flash" id="flash"></div>
+<canvas id="bg"></canvas>
 
-<canvas id="particles"></canvas>
-
-<div class="cursor"></div>
-<div class="cursor-glow"></div>
-
-<div class="nav" id="nav">
-<span>VZMO</span>
-<span>System</span>
-</div>
-
-<section class="hero">
-<div class="hero-content fade">
+<div class="ui">
 <h1>VZMO</h1>
-<p>A digital presence shaped by motion and silence.</p>
-<div class="btn" id="enter">Enter</div>
+<p>Final Reactive System</p>
 </div>
-</section>
 
-<section class="section fade" id="target">
-<h2>Visual Fragments</h2>
-<div class="cards">
-<div class="card" style="background-image:url('Screenshot_2026-05-06-18-28-58-929_com.camerasideas.instashot.jpg')"></div>
-<div class="card" style="background-image:url('Screenshot_2026-05-06-18-29-11-657_com.camerasideas.instashot.jpg')"></div>
-<div class="card" style="background-image:url('Screenshot_2026-05-06-19-09-09-757_photoeditor.cutout.backgrounderaser.jpg')"></div>
+<div class="panel">
+<button class="btn" id="mic">Enable Mic</button>
+<button class="btn" id="reset">Reset</button>
 </div>
-</section>
-
-<div class="footer">End of transmission</div>
 
 <script>
 
-/* TERMINAL SEQUENCE */
-const lines=[
-"> initializing system...",
-"> loading modules...",
-"> verifying assets...",
-"> access granted"
-];
-const term=document.getElementById("terminal");
+/* ======================
+   TIME (REAL)
+====================== */
+const getTime = () => performance.now()*0.001;
 
-let i=0;
-function showLine(){
-if(i<lines.length){
-let div=document.createElement("div");
-div.className="line";
-div.innerText=lines[i];
-term.appendChild(div);
-setTimeout(()=>div.classList.add("show"),50);
-i++;
-setTimeout(showLine,500);
-}else{
-setTimeout(()=>{
-document.getElementById("flash").style.opacity="1";
-setTimeout(()=>{
-term.classList.add("hidden");
-document.getElementById("flash").style.opacity="0";
-},200);
-},500);
-}
-}
-showLine();
+/* ======================
+   THREE SETUP
+====================== */
+const canvas = document.getElementById('bg');
+const scene = new THREE.Scene();
 
-/* CURSOR (desktop only) */
-if(!('ontouchstart' in window)){
-const c=document.querySelector('.cursor');
-const g=document.querySelector('.cursor-glow');
-document.addEventListener('mousemove',e=>{
-c.style.left=g.style.left=e.clientX+'px';
-c.style.top=g.style.top=e.clientY+'px';
-});
-}
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+camera.position.z = 3;
 
-/* NAV */
-window.addEventListener('scroll',()=>{
-if(window.scrollY>100){
-document.getElementById('nav').classList.add('show');
-}
-});
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setSize(innerWidth, innerHeight);
 
-/* SCROLL */
-document.getElementById('enter').onclick=()=>{
-document.getElementById('target').scrollIntoView({behavior:'smooth'});
+/* ======================
+   RIPPLE SYSTEM
+====================== */
+const MAX_RIPPLES = 5;
+
+const uniforms = {
+time:{value:0},
+audioLow:{value:0.5},
+audioHigh:{value:0.5},
+beat:{value:0},
+
+rippleUV:{value: Array.from({length:MAX_RIPPLES}, ()=>new THREE.Vector2(0.5,0.5))},
+rippleTime:{value: new Float32Array(MAX_RIPPLES)}
 };
 
-/* FADE */
-const f=document.querySelectorAll('.fade');
-function reveal(){
-f.forEach(el=>{
-if(el.getBoundingClientRect().top<window.innerHeight*0.85){
-el.classList.add('show');
-}
-});
-}
-window.addEventListener('scroll',reveal);
-reveal();
+let rippleIndex = 0;
 
-/* CARD TILT */
-document.querySelectorAll('.card').forEach(card=>{
-card.addEventListener('mousemove',e=>{
-const r=card.getBoundingClientRect();
-const x=e.clientX-r.left;
-const y=e.clientY-r.top;
-card.style.transform=`rotateX(${-(y/r.height-0.5)*10}deg) rotateY(${(x/r.width-0.5)*10}deg)`;
-});
-card.addEventListener('mouseleave',()=>{card.style.transform='rotateX(0) rotateY(0)';});
-});
+function addRipple(uv){
+uniforms.rippleUV.value[rippleIndex].copy(uv);
+uniforms.rippleTime.value[rippleIndex] = getTime();
 
-/* PARTICLES */
-const canvas=document.getElementById('particles');
-const ctx=canvas.getContext('2d');
-canvas.width=window.innerWidth;
-canvas.height=window.innerHeight;
+/* ensure GPU update */
+uniforms.rippleUV.needsUpdate = true;
+uniforms.rippleTime.needsUpdate = true;
 
-let particles=[];
-for(let i=0;i<60;i++){
-particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:Math.random()-0.5,vy:Math.random()-0.5});
+rippleIndex = (rippleIndex + 1) % MAX_RIPPLES;
 }
 
-function draw(){
-ctx.clearRect(0,0,canvas.width,canvas.height);
-particles.forEach(p=>{
-p.x+=p.vx;
-p.y+=p.vy;
-ctx.fillStyle="rgba(255,255,255,0.2)";
-ctx.fillRect(p.x,p.y,2,2);
-});
-requestAnimationFrame(draw);
+/* ======================
+   SHADER
+====================== */
+const material = new THREE.ShaderMaterial({
+uniforms,
+vertexShader:`
+varying vec2 vUv;
+varying vec3 vNormal;
+varying vec3 vView;
+
+void main(){
+vUv = uv;
+vNormal = normalize(normalMatrix * normal);
+vec4 mv = modelViewMatrix * vec4(position,1.0);
+vView = normalize(-mv.xyz);
+gl_Position = projectionMatrix * mv;
 }
-draw();
+`,
+fragmentShader:`
+#define MAX_RIPPLES 5
+
+uniform float time;
+uniform float audioLow;
+uniform float audioHigh;
+uniform float beat;
+
+uniform vec2 rippleUV[MAX_RIPPLES];
+uniform float rippleTime[MAX_RIPPLES];
+
+varying vec2 vUv;
+varying vec3 vNormal;
+varying vec3 vView;
+
+void main(){
+
+vec2 uv = vUv;
+
+/* liquid motion */
+uv += sin(uv.y*8.0 + time*2.0)*0.02*(0.5+audioLow);
+uv += cos(uv.x*8.0 + time*2.0)*0.02*(0.5+audioLow);
+
+/* fresnel */
+float fresnel = pow(1.0 - dot(normalize(vNormal), normalize(vView)), 2.5);
+vec3 base = mix(vec3(0.08,0.08,0.1), vec3(0.8,0.9,1.0), fresnel);
+
+/* ripple waves */
+float rippleSum = 0.0;
+
+for(int i=0;i<MAX_RIPPLES;i++){
+float t = time - rippleTime[i];
+if(t < 0.0 || t > 2.0) continue;
+
+float d = distance(uv, rippleUV[i]);
+
+float wave = sin(20.0*d - t*6.0);
+float fade = exp(-3.0*d) * (1.0 - t/2.0);
+
+rippleSum += wave * fade;
+}
+
+base += rippleSum * 0.15;
+
+/* audio */
+base += audioHigh * 0.2;
+
+/* beat pulse */
+base += beat * 0.3;
+
+gl_FragColor = vec4(base,1.0);
+}
+`
+});
+
+/* ======================
+   OBJECT
+====================== */
+const mesh = new THREE.Mesh(
+new THREE.SphereGeometry(1,64,64),
+material
+);
+scene.add(mesh);
+
+/* ======================
+   RAYCAST (ONLY ON MOVE)
+====================== */
+const raycaster = new THREE.Raycaster();
+let mouse = new THREE.Vector2();
+let lastMouse = new THREE.Vector2(999,999);
+
+function updateRaycast(){
+if(mouse.distanceToSquared(lastMouse) < 0.000001) return;
+
+lastMouse.copy(mouse);
+
+raycaster.setFromCamera(mouse, camera);
+const hit = raycaster.intersectObject(mesh);
+
+if(hit.length){
+addRipple(hit[0].uv);
+}
+}
+
+/* ======================
+   INPUT
+====================== */
+function setMouse(x,y){
+mouse.set(x*2-1, -(y*2-1));
+}
+
+addEventListener('mousemove',e=>{
+setMouse(e.clientX/innerWidth, e.clientY/innerHeight);
+});
+
+addEventListener('touchmove',e=>{
+let t=e.touches[0];
+setMouse(t.clientX/innerWidth, t.clientY/innerHeight);
+});
+
+/* ======================
+   AUDIO
+====================== */
+let analyser, data;
+let smLow=0.5, smHigh=0.5;
+let env=0, threshold=0.3;
+
+document.getElementById('mic').addEventListener('click', async ()=>{
+try{
+const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+const ctx = new AudioContext();
+await ctx.resume();
+
+const src = ctx.createMediaStreamSource(stream);
+
+analyser = ctx.createAnalyser();
+analyser.fftSize = 128;
+
+src.connect(analyser);
+data = new Uint8Array(analyser.frequencyBinCount);
+}catch{}
+});
+
+function updateAudio(){
+if(!analyser) return;
+
+analyser.getByteFrequencyData(data);
+
+let low=0, high=0;
+for(let i=0;i<data.length/2;i++) low+=data[i];
+for(let i=data.length/2;i<data.length;i++) high+=data[i];
+
+low /= (data.length/2);
+high /= (data.length/2);
+
+/* smoothing */
+smLow += (low/255 - smLow)*0.1;
+smHigh += (high/255 - smHigh)*0.1;
+
+uniforms.audioLow.value = smLow;
+uniforms.audioHigh.value = smHigh;
+
+/* envelope */
+env += (smLow - env)*0.3;
+
+/* clamp threshold */
+threshold = Math.max(threshold, 0.1);
+
+/* beat detect */
+if(env > threshold && env > 0.15){
+uniforms.beat.value = 1.0;
+threshold = env * 1.1;
+}else{
+uniforms.beat.value *= 0.85;
+threshold *= 0.995;
+}
+}
+
+/* ======================
+   RESET
+====================== */
+document.getElementById('reset').addEventListener('click',()=>{
+mouse.set(0,0);
+});
+
+/* ======================
+   ANIMATION
+====================== */
+function animate(){
+requestAnimationFrame(animate);
+
+uniforms.time.value = getTime();
+
+updateRaycast();
+updateAudio();
+
+mesh.rotation.y += 0.003;
+
+renderer.render(scene,camera);
+}
+animate();
+
+/* ======================
+   RESIZE
+====================== */
+addEventListener('resize',()=>{
+renderer.setSize(innerWidth, innerHeight);
+camera.aspect = innerWidth/innerHeight;
+camera.updateProjectionMatrix();
+});
 
 </script>
 
