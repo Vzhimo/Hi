@@ -1,230 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VZMO Lite — Final Fixed</title>
-
-<!-- LOCAL THREE.JS (make sure three.min.js is in same folder) -->
-<script src="three.min.js"></script>
-
-<!-- Mobile console (optional) -->
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
-
-<style>
-body{margin:0;background:#000;overflow:hidden;color:#fff;font-family:sans-serif;}
-.panel{
-position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
-background:rgba(0,0,0,0.4);padding:10px;display:flex;gap:10px;
-pointer-events:auto;
-}
-button{padding:6px 12px;background:none;color:#fff;border:1px solid #fff;cursor:pointer;}
-button:disabled{opacity:0.5;}
-</style>
+  <meta charset="UTF-8">
+  <title>Interactive Demo Website</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0; padding: 0;
+      background: linear-gradient(to right, #f0f0f0, #d9e4f5);
+      color: #333;
+    }
+    header {
+      background: #4a90e2;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      background: #333;
+    }
+    nav button {
+      background: none;
+      border: none;
+      color: white;
+      padding: 14px 20px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    nav button:hover {
+      background: #4a90e2;
+    }
+    section {
+      padding: 20px;
+      display: none;
+    }
+    section.active {
+      display: block;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from {opacity: 0;}
+      to {opacity: 1;}
+    }
+    .interactive-box {
+      margin-top: 20px;
+      padding: 20px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .btn {
+      background: #4a90e2;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .btn:hover {
+      background: #357ABD;
+    }
+  </style>
 </head>
-
 <body>
-<div class="panel">
-<button id="mic">Mic</button>
-<button id="reset">Reset</button>
-</div>
+  <header>
+    <h1>My Interactive Website</h1>
+    <p>Lightweight, simple, and fun!</p>
+  </header>
 
-<script>
-/* === SAFETY === */
-if (typeof THREE === "undefined") {
-    document.body.innerHTML = "<h2 style='color:white;text-align:center;margin-top:40vh;'>Three.js not loaded</h2>";
-    throw new Error("Three.js missing");
-}
+  <nav>
+    <button onclick="showSection('home')">Home</button>
+    <button onclick="showSection('about')">About</button>
+    <button onclick="showSection('play')">Play</button>
+  </nav>
 
-/* === SETUP === */
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 100);
-camera.position.set(0, 0, 3);
-camera.lookAt(0, 0, 0);
+  <section id="home" class="active">
+    <h2>Welcome</h2>
+    <p>This is a demo interactive website. Use the navigation bar to explore different sections.</p>
+  </section>
 
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth, innerHeight);
-document.body.appendChild(renderer.domElement);
+  <section id="about">
+    <h2>About</h2>
+    <p>This site is built with pure HTML, CSS, and JavaScript. No heavy frameworks, so it loads fast!</p>
+  </section>
 
-/* === UNIFORMS (vibrant) === */
-const uniforms = {
-    time: { value: 0 },
-    hit: { value: new THREE.Vector2(0.5, 0.5) },
-    audio: { value: 0.5 }
-};
+  <section id="play">
+    <h2>Playground</h2>
+    <div class="interactive-box">
+      <p>Click the button to change the background color:</p>
+      <button class="btn" onclick="changeColor()">Change Color</button>
+    </div>
+    <div class="interactive-box">
+      <p>Type something and see it appear below:</p>
+      <input type="text" id="userInput" placeholder="Type here...">
+      <button class="btn" onclick="displayText()">Show Text</button>
+      <p id="output"></p>
+    </div>
+  </section>
 
-/* === COLORFUL SHADER with ripple and audio-reactive hue === */
-const material = new THREE.ShaderMaterial({
-    uniforms,
-    vertexShader: `
-        varying vec2 vUv;
-        void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-    `,
-    fragmentShader: `
-        precision highp float;
-        uniform float time;
-        uniform vec2 hit;
-        uniform float audio;
-        varying vec2 vUv;
-
-        void main() {
-            vec2 uv = vUv;
-
-            // ripple wave
-            float d = distance(uv, hit);
-            float ripple = sin(20.0 * d - time * 8.0) * exp(-4.0 * d);
-
-            // glow (mouse/touch proximity)
-            float glow = smoothstep(0.3, 0.0, d) * (0.5 + audio);
-
-            // dynamic base color: changes with hit position and audio
-            vec3 colorA = vec3(0.2, 0.1, 0.6); // deep blue
-            vec3 colorB = vec3(0.9, 0.2, 0.4); // pinkish red
-            vec3 base = mix(colorA, colorB, hit.x + hit.y * 0.5);
-            base += vec3(0.5, 0.3, 0.0) * audio;
-
-            // add ripple and glow
-            vec3 finalColor = base + ripple * 0.3 + glow * 0.8;
-            finalColor = clamp(finalColor, 0.0, 1.0);
-
-            gl_FragColor = vec4(finalColor, 1.0);
-        }
-    `
-});
-
-/* === SPHERE (low poly) === */
-const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48), material);
-scene.add(mesh);
-
-/* === RAYCAST (only on input events) === */
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-let lastUV = new THREE.Vector2(-1, -1);
-
-function setScreenCoords(clientX, clientY) {
-    mouse.x = (clientX / innerWidth) * 2 - 1;
-    mouse.y = -(clientY / innerHeight) * 2 + 1;
-}
-
-function performRaycast() {
-    raycaster.setFromCamera(mouse, camera);
-    const hits = raycaster.intersectObject(mesh);
-    if (hits.length) {
-        const uv = hits[0].uv;
-        if (uv.distanceTo(lastUV) > 0.001) {
-            lastUV.copy(uv);
-            uniforms.hit.value.copy(uv);
-        }
+  <script>
+    function showSection(id) {
+      document.querySelectorAll('section').forEach(sec => sec.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
     }
-}
 
-// Mouse and touch movement
-window.addEventListener('mousemove', e => {
-    setScreenCoords(e.clientX, e.clientY);
-    performRaycast();
-});
-window.addEventListener('touchmove', e => {
-    e.preventDefault();
-    const t = e.touches[0];
-    setScreenCoords(t.clientX, t.clientY);
-    performRaycast();
-});
-
-// Click/tap also triggers a raycast (immediate ripple)
-window.addEventListener('click', e => {
-    setScreenCoords(e.clientX, e.clientY);
-    performRaycast();
-});
-window.addEventListener('touchstart', e => {
-    e.preventDefault();
-    const t = e.touches[0];
-    setScreenCoords(t.clientX, t.clientY);
-    performRaycast();
-});
-
-/* === AUDIO (with smoothing, no double init) === */
-let analyser, data, audioCtx, micActive = false;
-let smoothAudio = 0.5;
-const micBtn = document.getElementById('mic');
-
-micBtn.onclick = async () => {
-    if (micActive) return;
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const ctx = new AudioContext();
-        await ctx.resume();
-        audioCtx = ctx;
-        const source = ctx.createMediaStreamSource(stream);
-        analyser = ctx.createAnalyser();
-        analyser.fftSize = 64;
-        source.connect(analyser);
-        data = new Uint8Array(analyser.frequencyBinCount);
-        micActive = true;
-        micBtn.innerText = "ON";
-        micBtn.disabled = true;
-    } catch (err) {
-        console.warn("Mic error:", err);
-        micBtn.innerText = "Failed";
-        setTimeout(() => { micBtn.innerText = "Mic"; micBtn.disabled = false; }, 2000);
+    function changeColor() {
+      const colors = ['#f9c74f', '#90be6d', '#f94144', '#577590', '#43aa8b'];
+      document.body.style.background = colors[Math.floor(Math.random() * colors.length)];
     }
-};
 
-function updateAudio() {
-    if (!analyser || !data) return;
-    analyser.getByteFrequencyData(data);
-    let sum = 0;
-    for (let i = 0; i < data.length; i++) sum += data[i];
-    const raw = (sum / data.length) / 255;
-    smoothAudio += (raw - smoothAudio) * 0.2;
-    uniforms.audio.value = smoothAudio;
-}
-
-/* === RESET BUTTON (fully resets hit, camera, and audio smooth) === */
-document.getElementById('reset').onclick = () => {
-    // reset hit to center
-    uniforms.hit.value.set(0.5, 0.5);
-    lastUV.set(0.5, 0.5);
-    // reset camera (no auto‑motion now)
-    camera.position.set(0, 0, 3);
-    camera.lookAt(0, 0, 0);
-    // reset audio smoothing to neutral
-    smoothAudio = 0.5;
-    uniforms.audio.value = 0.5;
-    // optional: also reset mouse position to center to avoid immediate overrides
-    setScreenCoords(innerWidth/2, innerHeight/2);
-    performRaycast();
-};
-
-/* === ANIMATION LOOP === */
-function animate() {
-    requestAnimationFrame(animate);
-    uniforms.time.value = performance.now() * 0.001;
-    updateAudio();
-
-    // gentle rotation of the sphere (does not affect camera)
-    mesh.rotation.y += 0.003;
-    mesh.rotation.x += 0.001;
-
-    // camera is static; no auto movement (reset now sticks)
-    renderer.render(scene, camera);
-}
-animate();
-
-/* === RESIZE EVENT === */
-window.addEventListener('resize', () => {
-    renderer.setSize(innerWidth, innerHeight);
-    camera.aspect = innerWidth / innerHeight;
-    camera.updateProjectionMatrix();
-});
-
-// initial raycast at center
-setScreenCoords(innerWidth/2, innerHeight/2);
-performRaycast();
-</script>
+    function displayText() {
+      const text = document.getElementById('userInput').value;
+      document.getElementById('output').innerText = text ? `You typed: ${text}` : "Please type something!";
+    }
+  </script>
 </body>
-    </html>
+          </html>
 
